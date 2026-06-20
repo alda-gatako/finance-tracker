@@ -3,7 +3,7 @@
 A no-framework, offline-first budget tracker built with vanilla HTML, CSS, and JavaScript (ES modules). Built for the regex / HTML-CSS / JavaScript fundamentals assignment.
 
 **Live demo:**  https://alda-gatako.github.io/finance-tracker
-**Repo:**//github.com/alda-gatako/finance-tracker
+**Repo https:**//github.com/alda-gatako/finance-tracker
 
 ---
 
