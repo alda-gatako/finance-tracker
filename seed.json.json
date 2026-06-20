@@ -1,0 +1,110 @@
+[
+  {
+    "id": "rec_0001",
+    "description": "Lunch at cafeteria",
+    "amount": 12.50,
+    "category": "Food",
+    "date": "2026-06-01",
+    "createdAt": "2026-06-01T12:05:00.000Z",
+    "updatedAt": "2026-06-01T12:05:00.000Z"
+  },
+  {
+    "id": "rec_0002",
+    "description": "Used algorithms textbook",
+    "amount": 45,
+    "category": "Books",
+    "date": "2026-06-02",
+    "createdAt": "2026-06-02T09:15:00.000Z",
+    "updatedAt": "2026-06-02T09:15:00.000Z"
+  },
+  {
+    "id": "rec_0003",
+    "description": "Bus pass top-up",
+    "amount": 8.75,
+    "category": "Transport",
+    "date": "2026-06-03",
+    "createdAt": "2026-06-03T07:40:00.000Z",
+    "updatedAt": "2026-06-03T07:40:00.000Z"
+  },
+  {
+    "id": "rec_0004",
+    "description": "Coffee with study group",
+    "amount": 3.20,
+    "category": "Food",
+    "date": "2026-06-04",
+    "createdAt": "2026-06-04T16:00:00.000Z",
+    "updatedAt": "2026-06-04T16:00:00.000Z"
+  },
+  {
+    "id": "rec_0005",
+    "description": "Cinema night",
+    "amount": 9.99,
+    "category": "Entertainment",
+    "date": "2026-06-05",
+    "createdAt": "2026-06-05T20:30:00.000Z",
+    "updatedAt": "2026-06-05T20:30:00.000Z"
+  },
+  {
+    "id": "rec_0006",
+    "description": "Semester registration fee",
+    "amount": 1200,
+    "category": "Fees",
+    "date": "2026-01-15",
+    "createdAt": "2026-01-15T08:00:00.000Z",
+    "updatedAt": "2026-01-15T08:00:00.000Z"
+  },
+  {
+    "id": "rec_0007",
+    "description": "Printer paper and pens",
+    "amount": 4.05,
+    "category": "Other",
+    "date": "2026-02-28",
+    "createdAt": "2026-02-28T11:11:00.000Z",
+    "updatedAt": "2026-02-28T11:11:00.000Z"
+  },
+  {
+    "id": "rec_0008",
+    "description": "Tea and a sandwich",
+    "amount": 0.99,
+    "category": "Food",
+    "date": "2026-03-01",
+    "createdAt": "2026-03-01T13:25:00.000Z",
+    "updatedAt": "2026-03-01T13:25:00.000Z"
+  },
+  {
+    "id": "rec_0009",
+    "description": "New New balance running shoes",
+    "amount": 89.90,
+    "category": "Other",
+    "date": "2026-04-12",
+    "createdAt": "2026-04-12T18:00:00.000Z",
+    "updatedAt": "2026-04-12T18:00:00.000Z"
+  },
+  {
+    "id": "rec_0010",
+    "description": "Leap day market run",
+    "amount": 15.30,
+    "category": "Food",
+    "date": "2026-12-31",
+    "createdAt": "2026-12-31T23:59:00.000Z",
+    "updatedAt": "2026-12-31T23:59:00.000Z"
+  },
+  {
+    "id": "rec_0011",
+    "description": "Self-Care evening",
+    "amount": 22,
+    "category": "Self-Care",
+    "date": "2026-05-20",
+    "createdAt": "2026-05-20T19:00:00.000Z",
+    "updatedAt": "2026-05-20T19:00:00.000Z"
+  },
+  {
+    "id": "rec_0012",
+    "description": "Microtransaction in mobile game",
+    "amount": 0.50,
+    "category": "Entertainment",
+    "date": "2026-06-10",
+    "createdAt": "2026-06-10T22:10:00.000Z",
+    "updatedAt": "2026-06-10T22:10:00.000Z"
+  }
+]

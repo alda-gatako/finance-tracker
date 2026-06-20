@@ -1,0 +1,1645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Student Ledger — Finance Tracker</title>
+<meta name="description" content="A lightweight, offline-first finance tracker for students. Track spending, search with regex, and stay under your budget cap.">
+<style>
+/* ============================================================
+   Student Ledger — Finance Tracker
+   Design: ruled-paper / binder-divider ledger aesthetic
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+:root {
+  /* Color tokens */
+  --paper: #FAF7F0;
+  --paper-line: #E3DCC9;
+  --ink: #1B1B1B;
+  --ink-soft: #5B564B;
+  --surface: #EDE6D6;
+  --surface-raised: #FFFDF8;
+  --primary: #3D5A80;
+  --primary-dark: #2C4361;
+  --good: #81B29A;
+  --good-bg: #E7F0EA;
+  --alert: #E07A5F;
+  --alert-bg: #FBEAE5;
+  --focus-ring: #1B6FD4;
+
+  /* Type */
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+
+  /* Layout */
+  --radius: 6px;
+  --shadow-card: 0 1px 2px rgba(27,27,27,0.06), 0 4px 14px rgba(27,27,27,0.05);
+  --gutter: clamp(1rem, 4vw, 2.5rem);
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  background: var(--paper);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent,
+    transparent 35px,
+    var(--paper-line) 36px
+  );
+  color: var(--ink);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+h1, h2, h3 { font-family: var(--font-display); font-weight: 600; margin: 0 0 0.5em; }
+h1 { font-size: clamp(1.7rem, 4vw, 2.4rem); }
+h2 { font-size: clamp(1.25rem, 3vw, 1.6rem); }
+h3 { font-size: 1.05rem; }
+
+a { color: var(--primary); }
+
+/* ---------- Skip link ---------- */
+.skip-link {
+  position: absolute;
+  left: -999px;
+  top: 0;
+  background: var(--primary);
+  color: #fff;
+  padding: 0.75em 1.25em;
+  z-index: 1000;
+  border-radius: 0 0 var(--radius) 0;
+  font-weight: 600;
+}
+.skip-link:focus {
+  left: 0;
+}
+
+/* ---------- Focus visibility ---------- */
+:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* ---------- Header / nav (binder tabs) ---------- */
+.site-header {
+  background: var(--surface-raised);
+  border-bottom: 2px solid var(--ink);
+  padding: 0.9rem var(--gutter) 0;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.brand-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+.brand-mark {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 0.2rem 0.45rem;
+  border-radius: 3px;
+}
+.brand h1 { margin: 0; }
+.brand-sub { color: var(--ink-soft); font-size: 0.85rem; }
+
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-top: 1rem;
+  list-style: none;
+  padding: 0;
+  overflow-x: auto;
+}
+.tabs button {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.92rem;
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  padding: 0.6rem 1.1rem;
+  cursor: pointer;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  transform: translateY(2px);
+  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.tabs button:hover { color: var(--ink); }
+.tabs button[aria-selected="true"] {
+  background: var(--paper);
+  color: var(--ink);
+  transform: translateY(0);
+  border-bottom: 2px solid var(--paper);
+  margin-bottom: -2px;
+}
+
+/* ---------- Main layout ---------- */
+main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2rem var(--gutter) 4rem;
+}
+
+.panel {
+  animation: rise 0.35s ease both;
+}
+.panel[hidden] { display: none; }
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.panel-intro {
+  color: var(--ink-soft);
+  max-width: 60ch;
+  margin-bottom: 1.75rem;
+}
+
+/* ---------- Cards / surfaces ---------- */
+.card {
+  background: var(--surface-raised);
+  border: 1px solid var(--paper-line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: 1.25rem 1.4rem;
+}
+
+.card + .card { margin-top: 1.25rem; }
+
+/* ---------- Stats dashboard ---------- */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.9rem;
+  margin-bottom: 1.5rem;
+}
+@media (min-width: 768px) {
+  .stats-grid { grid-template-columns: repeat(4, 1fr); }
+}
+.stat-card {
+  background: var(--surface-raised);
+  border: 1px solid var(--paper-line);
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem;
+  box-shadow: var(--shadow-card);
+}
+.stat-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.stat-value {
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  font-weight: 700;
+  margin-top: 0.2rem;
+  font-variant-numeric: tabular-nums;
+}
+.stat-value.mono { font-family: var(--font-mono); }
+
+/* Signature element: the ledger balance ruler */
+.balance-ruler {
+  margin-top: 0.4rem;
+}
+.ruler-track {
+  position: relative;
+  height: 22px;
+  background: repeating-linear-gradient(
+    to right,
+    var(--paper-line) 0,
+    var(--paper-line) 1px,
+    transparent 1px,
+    transparent calc(100% / 20)
+  );
+  border: 1.5px solid var(--ink);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.ruler-fill {
+  position: absolute;
+  inset: 0;
+  width: 0%;
+  background: var(--good);
+  transition: width 0.5s cubic-bezier(.4,0,.2,1), background-color 0.4s ease;
+}
+.ruler-fill.over { background: var(--alert); }
+.ruler-caption {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  margin-top: 0.35rem;
+}
+.ruler-caption strong { color: var(--ink); }
+
+.trend-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  height: 90px;
+  margin-top: 0.5rem;
+}
+.trend-bar-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  justify-content: flex-end;
+  gap: 0.3rem;
+}
+.trend-bar {
+  width: 100%;
+  max-width: 28px;
+  background: var(--primary);
+  border-radius: 3px 3px 0 0;
+  transition: height 0.4s ease;
+  min-height: 2px;
+}
+.trend-day-label {
+  font-size: 0.65rem;
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+}
+
+/* ---------- Forms ---------- */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+@media (min-width: 600px) {
+  .form-grid { grid-template-columns: 1fr 1fr; }
+  .form-grid .span-2 { grid-column: 1 / -1; }
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.field label {
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+.field .hint {
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+.field input,
+.field select {
+  font: inherit;
+  font-family: var(--font-mono);
+  padding: 0.55rem 0.7rem;
+  border: 1.5px solid var(--paper-line);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink);
+}
+.field input:focus,
+.field select:focus {
+  border-color: var(--primary);
+}
+.field input[aria-invalid="true"],
+.field select[aria-invalid="true"] {
+  border-color: var(--alert);
+  background: var(--alert-bg);
+}
+.field-error {
+  font-size: 0.8rem;
+  color: #9C3B23;
+  min-height: 1.1em;
+}
+.field-error:empty { display: none; }
+
+.form-actions {
+  display: flex;
+  gap: 0.7rem;
+  margin-top: 0.4rem;
+  align-items: center;
+}
+
+/* ---------- Buttons ---------- */
+button {
+  font-family: var(--font-body);
+  cursor: pointer;
+}
+.btn {
+  font-weight: 600;
+  font-size: 0.92rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--ink);
+  background: var(--paper);
+  color: var(--ink);
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+.btn:hover { background: var(--surface); }
+.btn:active { transform: translateY(1px); }
+.btn-primary {
+  background: var(--primary);
+  border-color: var(--primary-dark);
+  color: #fff;
+}
+.btn-primary:hover { background: var(--primary-dark); }
+.btn-ghost {
+  border-color: var(--paper-line);
+  color: var(--ink-soft);
+}
+.btn-danger {
+  border-color: #9C3B23;
+  color: #9C3B23;
+  background: transparent;
+}
+.btn-danger:hover { background: var(--alert-bg); }
+.btn-sm { padding: 0.35rem 0.7rem; font-size: 0.8rem; }
+
+/* ---------- Search & filter bar ---------- */
+.search-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+.search-bar input[type="text"] {
+  flex: 1;
+  min-width: 200px;
+  font-family: var(--font-mono);
+  padding: 0.55rem 0.8rem;
+  border: 1.5px solid var(--paper-line);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+}
+.search-bar input[aria-invalid="true"] {
+  border-color: var(--alert);
+}
+.checkbox-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.regex-error {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: #9C3B23;
+  width: 100%;
+}
+.regex-error:empty { display: none; }
+
+mark {
+  background: #FCE2A8;
+  color: var(--ink);
+  border-radius: 2px;
+  padding: 0 0.1em;
+}
+
+/* ---------- Table ---------- */
+.table-scroll { overflow-x: auto; }
+table.ledger {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+table.ledger caption { text-align: left; margin-bottom: 0.5rem; color: var(--ink-soft); font-size: 0.85rem; }
+table.ledger th, table.ledger td {
+  text-align: left;
+  padding: 0.65rem 0.7rem;
+  border-bottom: 1px solid var(--paper-line);
+  vertical-align: middle;
+}
+table.ledger thead th {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+  border-bottom: 2px solid var(--ink);
+}
+table.ledger th button.sort-btn {
+  background: none;
+  border: none;
+  font: inherit;
+  font-weight: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+table.ledger tbody tr { transition: background 0.15s ease; }
+table.ledger tbody tr:hover { background: var(--surface); }
+.amount-cell { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.category-chip {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.18rem 0.55rem;
+  border-radius: 99px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  border: 1px solid var(--paper-line);
+}
+.row-actions { display: flex; gap: 0.4rem; }
+.empty-row td {
+  text-align: center;
+  color: var(--ink-soft);
+  padding: 2.5rem 1rem;
+  font-style: italic;
+}
+
+/* Mobile cards (replace table under 600px) */
+.record-cards { display: none; flex-direction: column; gap: 0.8rem; }
+@media (max-width: 599px) {
+  .table-scroll { display: none; }
+  .record-cards { display: flex; }
+}
+.record-card {
+  background: var(--surface-raised);
+  border: 1px solid var(--paper-line);
+  border-radius: var(--radius);
+  padding: 0.9rem 1rem;
+  box-shadow: var(--shadow-card);
+}
+.record-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.record-card-amount { font-family: var(--font-mono); font-weight: 700; font-size: 1.05rem; }
+.record-card-meta { color: var(--ink-soft); font-size: 0.82rem; margin-top: 0.25rem; }
+.record-card .row-actions { margin-top: 0.6rem; }
+
+/* ---------- Settings ---------- */
+.rate-row {
+  display: grid;
+  grid-template-columns: 1fr 110px;
+  gap: 0.7rem;
+  align-items: center;
+  max-width: 380px;
+}
+
+/* ---------- Status / live regions ---------- */
+.status-bar {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  padding: 0.5rem 0.8rem;
+  border-radius: var(--radius);
+  margin-bottom: 1rem;
+  min-height: 1.2em;
+}
+.status-bar:empty { display: none; }
+.status-bar.polite { background: var(--good-bg); color: #2F5443; }
+.status-bar.assertive { background: var(--alert-bg); color: #9C3B23; font-weight: 600; }
+
+/* ---------- About / Footer ---------- */
+.contact-list { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.contact-list a { font-family: var(--font-mono); }
+
+.site-footer {
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  padding: 2rem var(--gutter);
+}
+
+/* ---------- Utility ---------- */
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
+.flex-row { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+.toolbar { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+
+/* ---------- Breakpoint: large desktop refinement ---------- */
+@media (min-width: 1024px) {
+  .stats-grid { grid-template-columns: repeat(4, 1fr); }
+  main { padding-top: 2.5rem; }
+}
+
+</style>
+</head>
+<body>
+
+<a href="#main-content" class="skip-link">Skip to content</a>
+
+<header class="site-header">
+  <div class="brand-row">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">$</span>
+      <h1>Student Ledger</h1>
+    </div>
+    <p class="brand-sub">A no-frills budget tracker built between classes</p>
+  </div>
+
+  <nav aria-label="Main sections">
+    <ul class="tabs" role="tablist">
+      <li role="presentation"><button type="button" role="tab" id="tab-about" data-tab="about" aria-controls="panel-about" aria-selected="false">About</button></li>
+      <li role="presentation"><button type="button" role="tab" id="tab-dashboard" data-tab="dashboard" aria-controls="panel-dashboard" aria-selected="false">Dashboard</button></li>
+      <li role="presentation"><button type="button" role="tab" id="tab-records" data-tab="records" aria-controls="panel-records" aria-selected="false">Records</button></li>
+      <li role="presentation"><button type="button" role="tab" id="tab-add" data-tab="add" aria-controls="panel-add" aria-selected="false">Add / Edit</button></li>
+      <li role="presentation"><button type="button" role="tab" id="tab-settings" data-tab="settings" aria-controls="panel-settings" aria-selected="false">Settings</button></li>
+    </ul>
+  </nav>
+</header>
+
+<main id="main-content">
+
+  <!-- ABOUT -->
+  <section class="panel" id="panel-about" role="tabpanel" aria-labelledby="tab-about" tabindex="-1">
+    <h2>About this ledger</h2>
+    <p class="panel-intro">
+      Student Ledger helps you see where your money actually goes between loan disbursements.
+      Log an expense in seconds, search your history with regular expressions, and get an honest
+      warning the moment you cross your monthly cap. Everything is saved locally in your browser —
+      nothing is sent to a server.
+    </p>
+    <div class="card">
+      <h3>Contact</h3>
+      <ul class="contact-list">
+        <li>GitHub: <a href="https://github.com/your-username" target="_blank" rel="noopener">github.com/your-username</a></li>
+        <li>Email: <a href="mailto:you@example.edu">you@example.edu</a></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- DASHBOARD -->
+  <section class="panel" id="panel-dashboard" role="tabpanel" aria-labelledby="tab-dashboard" tabindex="-1">
+    <h2>Dashboard</h2>
+    <p class="panel-intro">A snapshot of your spending: totals, top category, and the last 7 days.</p>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total records</div>
+        <div class="stat-value" id="stat-total-count">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total spent</div>
+        <div class="stat-value mono" id="stat-total-sum">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Top category</div>
+        <div class="stat-value" id="stat-top-category">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Monthly cap</div>
+        <div class="stat-value mono" id="stat-cap-value">—</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Spending vs. cap</h3>
+      <div class="balance-ruler">
+        <div class="ruler-track">
+          <div class="ruler-fill" id="cap-ruler-fill"></div>
+        </div>
+        <div class="ruler-caption">
+          <span>0</span>
+          <strong>Cap</strong>
+        </div>
+      </div>
+      <p class="status-bar" id="cap-status" role="status" aria-live="polite"></p>
+    </div>
+
+    <div class="card">
+      <h3>Last 7 days</h3>
+      <div class="trend-chart" id="trend-chart" aria-hidden="false" role="img" aria-label="Bar chart of spending over the last 7 days"></div>
+    </div>
+
+    <div class="card">
+      <h3>Converted totals</h3>
+      <div class="stats-grid" id="currency-breakdown"></div>
+    </div>
+  </section>
+
+  <!-- RECORDS -->
+  <section class="panel" id="panel-records" role="tabpanel" aria-labelledby="tab-records" tabindex="-1">
+    <h2>Records</h2>
+    <p class="panel-intro">Search with a regular expression, sort any column, and edit or delete inline.</p>
+
+    <form role="search" aria-label="Search records" onsubmit="return false;">
+      <div class="search-bar">
+        <label for="search-input" class="visually-hidden">Search records with a regular expression</label>
+        <input type="text" id="search-input" placeholder="Search with regex, e.g. (coffee|tea) or \.\d{2}\b" aria-describedby="regex-error" autocomplete="off">
+        <label class="checkbox-pill">
+          <input type="checkbox" id="case-insensitive-toggle" checked>
+          Case-insensitive
+        </label>
+        <p class="regex-error" id="regex-error" role="alert"></p>
+      </div>
+    </form>
+
+    <div class="table-scroll">
+      <table class="ledger">
+        <caption>Expense records. Click a column header to sort.</caption>
+        <thead>
+          <tr>
+            <th scope="col">
+              <button type="button" class="sort-btn" data-field="description" aria-sort="none">
+                Description <span class="sort-arrow" aria-hidden="true">↕</span>
+              </button>
+            </th>
+            <th scope="col">Category</th>
+            <th scope="col">
+              <button type="button" class="sort-btn" data-field="amount" aria-sort="none">
+                Amount <span class="sort-arrow" aria-hidden="true">↕</span>
+              </button>
+            </th>
+            <th scope="col">
+              <button type="button" class="sort-btn" data-field="date" aria-sort="descending">
+                Date <span class="sort-arrow" aria-hidden="true">↓</span>
+              </button>
+            </th>
+            <th scope="col"><span class="visually-hidden">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody id="records-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="record-cards" id="record-cards" aria-label="Expense records"></div>
+  </section>
+
+  <!-- ADD / EDIT -->
+  <section class="panel" id="panel-add" role="tabpanel" aria-labelledby="tab-add" tabindex="-1">
+    <h2 id="form-title">Add a record</h2>
+    <p class="panel-intro">All four fields are validated as you type. Fix any red field before saving.</p>
+
+    <p class="status-bar" id="form-status" role="status" aria-live="polite"></p>
+
+    <form id="record-form" class="card" novalidate>
+      <div class="form-grid">
+        <div class="field span-2">
+          <label for="field-description">Description</label>
+          <input type="text" id="field-description" name="description" required
+                 aria-describedby="error-description" placeholder="Lunch at cafeteria">
+          <p class="field-error" id="error-description" role="alert"></p>
+        </div>
+
+        <div class="field">
+          <label for="field-amount">Amount</label>
+          <input type="text" inputmode="decimal" id="field-amount" name="amount" required
+                 aria-describedby="error-amount" placeholder="12.50">
+          <p class="field-error" id="error-amount" role="alert"></p>
+        </div>
+
+        <div class="field">
+          <label for="field-category">Category</label>
+          <input type="text" id="field-category" name="category" required list="category-list"
+                 aria-describedby="error-category hint-category" placeholder="Food">
+          <span class="hint" id="hint-category">Letters, spaces or hyphens only.</span>
+          <datalist id="category-list"></datalist>
+          <p class="field-error" id="error-category" role="alert"></p>
+        </div>
+
+        <div class="field">
+          <label for="field-date">Date</label>
+          <input type="text" inputmode="numeric" id="field-date" name="date" required
+                 aria-describedby="error-date hint-date" placeholder="2026-06-20">
+          <span class="hint" id="hint-date">Format: YYYY-MM-DD</span>
+          <p class="field-error" id="error-date" role="alert"></p>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="form-submit">Add record</button>
+        <button type="button" class="btn btn-ghost" id="form-cancel" hidden>Cancel edit</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- SETTINGS -->
+  <section class="panel" id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" tabindex="-1">
+    <h2>Settings</h2>
+    <p class="panel-intro">Set your base currency, manual exchange rates, and your monthly spending cap.</p>
+
+    <p class="status-bar" id="settings-status" role="status" aria-live="polite"></p>
+
+    <form id="settings-form" class="card">
+      <div class="form-grid">
+        <div class="field">
+          <label for="setting-base-currency">Base currency</label>
+          <select id="setting-base-currency">
+            <option value="RWF">RWF — Rwandan Franc</option>
+            <option value="USD">USD — US Dollar</option>
+            <option value="EUR">EUR — Euro</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="setting-cap">Monthly spending cap</label>
+          <input type="text" inputmode="decimal" id="setting-cap" placeholder="50000">
+        </div>
+      </div>
+
+      <h3 style="margin-top:1.5rem;">Exchange rates</h3>
+      <p class="hint">Manual rates only — no live API. Enter how much 1 unit of your base currency is worth in each currency.</p>
+      <div id="rates-wrap"></div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Save settings</button>
+      </div>
+    </form>
+
+    <div class="card">
+      <h3>Import / export</h3>
+      <p class="hint">Export your data as JSON to back it up, or import a previously exported file.</p>
+      <p class="status-bar" id="io-status" role="status" aria-live="polite"></p>
+      <div class="form-actions">
+        <button type="button" class="btn" id="export-json-btn">Export JSON</button>
+        <label class="btn btn-ghost" for="import-json-input" style="display:inline-flex;align-items:center;">
+          Import JSON
+          <input type="file" id="import-json-input" accept="application/json" class="visually-hidden">
+        </label>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <p>Student Ledger — built for a regex, HTML/CSS, and JavaScript fundamentals course. Data stays in your browser.</p>
+</footer>
+
+<script type="module">
+// ====== storage.js ======
+// storage.js — localStorage persistence layer
+// Exposes a small module via ESM export. No globals leaked.
+
+const STORAGE_KEY = 'studentLedger.records.v1';
+const SETTINGS_KEY = 'studentLedger.settings.v1';
+
+const DEFAULT_SETTINGS = {
+  baseCurrency: 'RWF',
+  currencies: {
+    // manual rates: 1 unit of baseCurrency = X of target
+    USD: 0.00069,
+    EUR: 0.00064
+  },
+  monthlyCap: 50000
+};
+
+/** Load all records from localStorage. Returns [] if absent/corrupt. */
+function loadRecords() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed;
+  } catch (err) {
+    console.error('Failed to load records, resetting store.', err);
+    return [];
+  }
+}
+
+/** Persist the full records array. */
+function saveRecords(records) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    return true;
+  } catch (err) {
+    console.error('Failed to save records.', err);
+    return false;
+  }
+}
+
+/** Load settings, merged over defaults so new fields don't break old saves. */
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (!raw) return structuredClone(DEFAULT_SETTINGS);
+    const parsed = JSON.parse(raw);
+    return {
+      ...structuredClone(DEFAULT_SETTINGS),
+      ...parsed,
+      currencies: { ...DEFAULT_SETTINGS.currencies, ...(parsed.currencies || {}) }
+    };
+  } catch (err) {
+    console.error('Failed to load settings, using defaults.', err);
+    return structuredClone(DEFAULT_SETTINGS);
+  }
+}
+
+function saveSettings(settings) {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    return true;
+  } catch (err) {
+    console.error('Failed to save settings.', err);
+    return false;
+  }
+}
+
+
+// ====== validators.js ======
+// validators.js — regex-based validation rules
+// Each validator returns { valid: boolean, message: string }
+
+// Rule 1: description — no leading/trailing space, no doubled internal spaces
+const DESCRIPTION_RE = /^\S(?:.*\S)?$/;
+
+// Rule 2: numeric amount — up to 2 decimal places, no leading zeros (except "0")
+const AMOUNT_RE = /^(0|[1-9]\d*)(\.\d{1,2})?$/;
+
+// Rule 3: date — strict YYYY-MM-DD with valid month/day ranges
+const DATE_RE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+
+// Rule 4: category — letters with single internal spaces or hyphens only
+const CATEGORY_RE = /^[A-Za-z]+(?:[ -][A-Za-z]+)*$/;
+
+// Advanced rule (back-reference): catch accidentally duplicated words
+// e.g. "Lunch lunch at cafeteria" or "the the bus fare"
+const DUPLICATE_WORD_RE = /\b(\w+)\s+\1\b/i;
+
+function validateDescription(value) {
+  if (!DESCRIPTION_RE.test(value)) {
+    return {
+      valid: false,
+      message: 'No leading/trailing spaces, and avoid double spaces.'
+    };
+  }
+  if (DUPLICATE_WORD_RE.test(value)) {
+    return {
+      valid: false,
+      message: `Looks like a repeated word ("${DUPLICATE_WORD_RE.exec(value)[1]}"). Check for a typo.`
+    };
+  }
+  return { valid: true, message: '' };
+}
+
+function validateAmount(value) {
+  if (!AMOUNT_RE.test(value)) {
+    return {
+      valid: false,
+      message: 'Enter a positive number with at most 2 decimal places (e.g. 12.5 or 1200).'
+    };
+  }
+  if (Number(value) <= 0) {
+    return { valid: false, message: 'Amount must be greater than zero.' };
+  }
+  return { valid: true, message: '' };
+}
+
+function validateDate(value) {
+  if (!DATE_RE.test(value)) {
+    return { valid: false, message: 'Use the format YYYY-MM-DD (e.g. 2026-06-20).' };
+  }
+  // Confirm it's a real calendar date (e.g. reject Feb 30)
+  const [y, m, d] = value.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) {
+    return { valid: false, message: 'That date does not exist on the calendar.' };
+  }
+  return { valid: true, message: '' };
+}
+
+function validateCategory(value) {
+  if (!CATEGORY_RE.test(value)) {
+    return {
+      valid: false,
+      message: 'Letters only, with single spaces or hyphens between words (e.g. "Self-Care").'
+    };
+  }
+  return { valid: true, message: '' };
+}
+
+/** Compile a user-supplied search pattern safely. Never throws. */
+function compileSafeRegex(pattern, caseInsensitive) {
+  if (!pattern) return { regex: null, error: '' };
+  try {
+    const flags = caseInsensitive ? 'gi' : 'g';
+    const regex = new RegExp(pattern, flags);
+    return { regex, error: '' };
+  } catch (err) {
+    return { regex: null, error: `Invalid pattern: ${err.message}` };
+  }
+}
+
+// ====== search.js ======
+// search.js — live regex search + safe highlighting
+/**
+ * Filter records whose description or category matches the pattern.
+ * Returns { matches: Record[], error: string }
+ */
+function filterRecords(records, pattern, caseInsensitive) {
+  if (!pattern) return { matches: records, error: '' };
+
+  const { regex, error } = compileSafeRegex(pattern, caseInsensitive);
+  if (error) return { matches: records, error };
+
+  const matches = records.filter((r) => {
+    regex.lastIndex = 0;
+    const hitDesc = regex.test(r.description);
+    regex.lastIndex = 0;
+    const hitCat = regex.test(r.category);
+    return hitDesc || hitCat;
+  });
+
+  return { matches, error: '' };
+}
+
+/**
+ * Escape HTML special characters so user/record text can't inject markup.
+ */
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * Wrap regex matches in <mark> tags for a given text string, safely.
+ * If pattern is empty or invalid, returns escaped text unchanged.
+ */
+function highlightMatches(text, pattern, caseInsensitive) {
+  const safeText = escapeHtml(text);
+  if (!pattern) return safeText;
+
+  const { regex, error } = compileSafeRegex(pattern, caseInsensitive);
+  if (error || !regex) return safeText;
+
+  // Re-run against the *escaped* text so indices line up, but build output
+  // by matching the original text first to avoid breaking HTML entities.
+  let result = '';
+  let lastIndex = 0;
+  let match;
+  const re = new RegExp(regex.source, regex.flags.includes('g') ? regex.flags : regex.flags + 'g');
+  re.lastIndex = 0;
+
+  // Guard against zero-length match infinite loops
+  let guard = 0;
+  while ((match = re.exec(text)) !== null && guard < 1000) {
+    guard++;
+    const start = match.index;
+    const end = start + match[0].length;
+    result += escapeHtml(text.slice(lastIndex, start));
+    result += `<mark>${escapeHtml(text.slice(start, end))}</mark>`;
+    lastIndex = end;
+    if (match[0].length === 0) re.lastIndex++;
+  }
+  result += escapeHtml(text.slice(lastIndex));
+  return result;
+}
+
+// ====== state.js ======
+// state.js — central application state with a tiny pub/sub layer
+const listeners = new Set();
+
+const state = {
+  records: loadRecords(),
+  settings: loadSettings(),
+  search: { pattern: '', caseInsensitive: true },
+  sort: { field: 'date', dir: 'desc' }
+};
+
+function notify() {
+  listeners.forEach((fn) => fn(state));
+}
+
+function subscribe(fn) {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+
+function getState() {
+  return state;
+}
+
+function pad(n) { return String(n).padStart(4, '0'); }
+
+function nextId() {
+  const nums = state.records
+    .map((r) => parseInt(String(r.id).replace(/\D/g, ''), 10))
+    .filter((n) => !Number.isNaN(n));
+  const max = nums.length ? Math.max(...nums) : 0;
+  return `rec_${pad(max + 1)}`;
+}
+
+function addRecord({ description, amount, category, date }) {
+  const now = new Date().toISOString();
+  const record = {
+    id: nextId(),
+    description,
+    amount: Number(amount),
+    category,
+    date,
+    createdAt: now,
+    updatedAt: now
+  };
+  state.records.push(record);
+  saveRecords(state.records);
+  notify();
+  return record;
+}
+
+function updateRecord(id, patch) {
+  const idx = state.records.findIndex((r) => r.id === id);
+  if (idx === -1) return null;
+  state.records[idx] = {
+    ...state.records[idx],
+    ...patch,
+    updatedAt: new Date().toISOString()
+  };
+  saveRecords(state.records);
+  notify();
+  return state.records[idx];
+}
+
+function deleteRecord(id) {
+  const before = state.records.length;
+  state.records = state.records.filter((r) => r.id !== id);
+  saveRecords(state.records);
+  notify();
+  return state.records.length < before;
+}
+
+function setSearch(pattern, caseInsensitive) {
+  state.search = { pattern, caseInsensitive };
+  notify();
+}
+
+function setSort(field, dir) {
+  state.sort = { field, dir };
+  notify();
+}
+
+function updateSettings(patch) {
+  state.settings = { ...state.settings, ...patch };
+  saveSettings(state.settings);
+  notify();
+}
+
+/** Replace all records wholesale (used by JSON import). Validates shape first. */
+function replaceAllRecords(newRecords) {
+  state.records = newRecords;
+  saveRecords(state.records);
+  notify();
+}
+
+function getRecordById(id) {
+  return state.records.find((r) => r.id === id) || null;
+}
+
+// ====== ui.js ======
+// ui.js — DOM rendering, event wiring, sorting, stats, currency, import/export
+const DEFAULT_CATEGORIES = ['Food', 'Books', 'Transport', 'Entertainment', 'Fees', 'Other'];
+const SYMBOL = { RWF: 'FRw', USD: '$', EUR: '€' };
+
+function $(sel, root = document) { return root.querySelector(sel); }
+function $all(sel, root = document) { return Array.from(root.querySelectorAll(sel)); }
+
+function formatMoney(amount, currency) {
+  const sym = SYMBOL[currency] || currency;
+  const decimals = currency === 'RWF' ? 0 : 2;
+  return `${sym} ${amount.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+}
+
+function convert(amountInBase, currency, settings) {
+  if (currency === settings.baseCurrency) return amountInBase;
+  const rate = settings.currencies[currency];
+  if (typeof rate !== 'number') return amountInBase;
+  return amountInBase * rate;
+}
+
+function announce(el, message, assertive = false) {
+  if (!el) return;
+  el.className = `status-bar ${assertive ? 'assertive' : 'polite'}`;
+  el.setAttribute('aria-live', assertive ? 'assertive' : 'polite');
+  el.textContent = message;
+}
+
+// ---------------------------------------------------------------------
+// Tabs
+// ---------------------------------------------------------------------
+function initTabs() {
+  const tabButtons = $all('.tabs button');
+  const panels = $all('.panel');
+
+  function activate(tabId, { focus = true } = {}) {
+    tabButtons.forEach((btn) => {
+      const selected = btn.dataset.tab === tabId;
+      btn.setAttribute('aria-selected', String(selected));
+      btn.tabIndex = selected ? 0 : -1;
+    });
+    panels.forEach((p) => {
+      p.hidden = p.id !== `panel-${tabId}`;
+    });
+    if (focus) {
+      const panel = document.getElementById(`panel-${tabId}`);
+      if (panel) panel.focus();
+    }
+    if (tabId === 'dashboard') renderStats();
+    if (tabId === 'records') renderTable();
+    location.hash = tabId;
+  }
+
+  tabButtons.forEach((btn, i) => {
+    btn.addEventListener('click', () => activate(btn.dataset.tab));
+    btn.addEventListener('keydown', (e) => {
+      let target = null;
+      if (e.key === 'ArrowRight') target = tabButtons[(i + 1) % tabButtons.length];
+      if (e.key === 'ArrowLeft') target = tabButtons[(i - 1 + tabButtons.length) % tabButtons.length];
+      if (target) { target.focus(); activate(target.dataset.tab); e.preventDefault(); }
+    });
+  });
+
+  const initial = (location.hash || '#dashboard').slice(1);
+  const valid = tabButtons.some((b) => b.dataset.tab === initial);
+  activate(valid ? initial : 'dashboard', { focus: false });
+}
+
+// ---------------------------------------------------------------------
+// Categories (populate selects / datalist)
+// ---------------------------------------------------------------------
+function populateCategoryOptions() {
+  const { records } = getState();
+  const fromRecords = records.map((r) => r.category);
+  const all = Array.from(new Set([...DEFAULT_CATEGORIES, ...fromRecords])).sort();
+  const list = $('#category-list');
+  if (list) {
+    list.innerHTML = all.map((c) => `<option value="${c}"></option>`).join('');
+  }
+}
+
+// ---------------------------------------------------------------------
+// Form: Add / Edit
+// ---------------------------------------------------------------------
+function initForm() {
+  const form = $('#record-form');
+  const statusEl = $('#form-status');
+  let editingId = null;
+
+  const fields = {
+    description: $('#field-description'),
+    amount: $('#field-amount'),
+    category: $('#field-category'),
+    date: $('#field-date')
+  };
+  const errors = {
+    description: $('#error-description'),
+    amount: $('#error-amount'),
+    category: $('#error-category'),
+    date: $('#error-date')
+  };
+
+  const validators = {
+    description: validateDescription,
+    amount: validateAmount,
+    category: validateCategory,
+    date: validateDate
+  };
+
+  function validateField(name) {
+    const { valid, message } = validators[name](fields[name].value.trim());
+    fields[name].setAttribute('aria-invalid', String(!valid));
+    errors[name].textContent = message;
+    return valid;
+  }
+
+  Object.keys(fields).forEach((name) => {
+    fields[name].addEventListener('blur', () => validateField(name));
+    fields[name].addEventListener('input', () => {
+      if (fields[name].getAttribute('aria-invalid') === 'true') validateField(name);
+    });
+  });
+
+  function resetForm() {
+    form.reset();
+    editingId = null;
+    $('#form-title').textContent = 'Add a record';
+    $('#form-submit').textContent = 'Add record';
+    $('#form-cancel').hidden = true;
+    Object.keys(fields).forEach((name) => {
+      fields[name].removeAttribute('aria-invalid');
+      errors[name].textContent = '';
+    });
+    fields.date.value = new Date().toISOString().slice(0, 10);
+  }
+
+  function loadForEdit(id) {
+    const rec = getRecordById(id);
+    if (!rec) return;
+    editingId = id;
+    fields.description.value = rec.description;
+    fields.amount.value = rec.amount;
+    fields.category.value = rec.category;
+    fields.date.value = rec.date;
+    $('#form-title').textContent = `Edit record ${rec.id}`;
+    $('#form-submit').textContent = 'Save changes';
+    $('#form-cancel').hidden = false;
+    document.querySelector('[data-tab="add"]').click();
+    fields.description.focus();
+  }
+  window.__loadForEdit = loadForEdit; // bridged from table action buttons
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const names = Object.keys(fields);
+    const results = names.map(validateField);
+    if (!results.every(Boolean)) {
+      announce(statusEl, 'Please fix the highlighted fields before saving.', true);
+      const firstInvalid = names.find((n) => fields[n].getAttribute('aria-invalid') === 'true');
+      if (firstInvalid) fields[firstInvalid].focus();
+      return;
+    }
+
+    const payload = {
+      description: fields.description.value.trim(),
+      amount: fields.amount.value.trim(),
+      category: fields.category.value.trim(),
+      date: fields.date.value.trim()
+    };
+
+    if (editingId) {
+      updateRecord(editingId, { ...payload, amount: Number(payload.amount) });
+      announce(statusEl, `Record ${editingId} updated.`);
+    } else {
+      const rec = addRecord(payload);
+      announce(statusEl, `Record ${rec.id} added.`);
+    }
+    resetForm();
+    populateCategoryOptions();
+  });
+
+  $('#form-cancel').addEventListener('click', () => {
+    resetForm();
+    announce(statusEl, 'Edit cancelled.');
+  });
+
+  resetForm();
+}
+
+// ---------------------------------------------------------------------
+// Table / cards rendering with sort + regex search
+// ---------------------------------------------------------------------
+function getSortedFiltered() {
+  const { records, settings, search, sort } = getState();
+  const { matches, error } = filterRecords(records, search.pattern, search.caseInsensitive);
+
+  const sorted = [...matches].sort((a, b) => {
+    let cmp = 0;
+    if (sort.field === 'date') cmp = a.date.localeCompare(b.date);
+    else if (sort.field === 'description') cmp = a.description.localeCompare(b.description);
+    else if (sort.field === 'amount') cmp = a.amount - b.amount;
+    return sort.dir === 'asc' ? cmp : -cmp;
+  });
+
+  return { sorted, error, settings, search };
+}
+
+function renderTable() {
+  const tbody = $('#records-tbody');
+  const cardsWrap = $('#record-cards');
+  const regexErrorEl = $('#regex-error');
+  if (!tbody) return;
+
+  const { sorted, error, settings, search } = getSortedFiltered();
+  regexErrorEl.textContent = error;
+  $('#search-input').setAttribute('aria-invalid', String(Boolean(error)));
+
+  $all('.sort-btn').forEach((btn) => {
+    const { sort } = getState();
+    const active = btn.dataset.field === sort.field;
+    btn.setAttribute('aria-sort', active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none');
+    const arrow = btn.querySelector('.sort-arrow');
+    if (arrow) arrow.textContent = active ? (sort.dir === 'asc' ? '↑' : '↓') : '↕';
+  });
+
+  if (sorted.length === 0) {
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="5">No records match. Try a different search or add your first expense.</td></tr>`;
+    cardsWrap.innerHTML = `<p class="empty-row" style="padding:1rem;">No records match.</p>`;
+    return;
+  }
+
+  tbody.innerHTML = sorted.map((r) => {
+    const descHtml = highlightMatches(r.description, search.pattern, search.caseInsensitive);
+    const catHtml = highlightMatches(r.category, search.pattern, search.caseInsensitive);
+    return `
+      <tr data-id="${r.id}">
+        <td>${descHtml}</td>
+        <td><span class="category-chip">${catHtml}</span></td>
+        <td class="amount-cell">${formatMoney(r.amount, settings.baseCurrency)}</td>
+        <td>${r.date}</td>
+        <td class="row-actions">
+          <button class="btn btn-sm btn-ghost" data-action="edit" data-id="${r.id}">Edit</button>
+          <button class="btn btn-sm btn-danger" data-action="delete" data-id="${r.id}">Delete</button>
+        </td>
+      </tr>`;
+  }).join('');
+
+  cardsWrap.innerHTML = sorted.map((r) => {
+    const descHtml = highlightMatches(r.description, search.pattern, search.caseInsensitive);
+    const catHtml = highlightMatches(r.category, search.pattern, search.caseInsensitive);
+    return `
+      <article class="record-card" data-id="${r.id}">
+        <div class="record-card-top">
+          <strong>${descHtml}</strong>
+          <span class="record-card-amount">${formatMoney(r.amount, settings.baseCurrency)}</span>
+        </div>
+        <div class="record-card-meta"><span class="category-chip">${catHtml}</span> · ${r.date}</div>
+        <div class="row-actions">
+          <button class="btn btn-sm btn-ghost" data-action="edit" data-id="${r.id}">Edit</button>
+          <button class="btn btn-sm btn-danger" data-action="delete" data-id="${r.id}">Delete</button>
+        </div>
+      </article>`;
+  }).join('');
+}
+
+function initTableEvents() {
+  $all('.sort-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const { sort } = getState();
+      const field = btn.dataset.field;
+      const dir = sort.field === field && sort.dir === 'asc' ? 'desc' : 'asc';
+      setSort(field, dir);
+    });
+  });
+
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const { action, id } = btn.dataset;
+    if (action === 'edit') window.__loadForEdit(id);
+    if (action === 'delete') {
+      const rec = getRecordById(id);
+      if (!rec) return;
+      const ok = confirm(`Delete "${rec.description}" (${formatMoney(rec.amount, getState().settings.baseCurrency)})? This cannot be undone.`);
+      if (ok) {
+        deleteRecord(id);
+        announce($('#form-status'), `Record ${id} deleted.`);
+      }
+    }
+  });
+
+  const searchInput = $('#search-input');
+  const caseToggle = $('#case-insensitive-toggle');
+  searchInput.addEventListener('input', () => {
+    setSearch(searchInput.value.trim(), caseToggle.checked);
+  });
+  caseToggle.addEventListener('change', () => {
+    setSearch(searchInput.value.trim(), caseToggle.checked);
+  });
+}
+
+// ---------------------------------------------------------------------
+// Stats dashboard
+// ---------------------------------------------------------------------
+function lastNDays(n) {
+  const days = [];
+  const today = new Date();
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    days.push(d.toISOString().slice(0, 10));
+  }
+  return days;
+}
+
+function renderStats() {
+  const { records, settings } = getState();
+  const total = records.reduce((sum, r) => sum + r.amount, 0);
+
+  $('#stat-total-count').textContent = records.length;
+  $('#stat-total-sum').textContent = formatMoney(total, settings.baseCurrency);
+
+  const byCategory = {};
+  records.forEach((r) => { byCategory[r.category] = (byCategory[r.category] || 0) + r.amount; });
+  const topCategory = Object.entries(byCategory).sort((a, b) => b[1] - a[1])[0];
+  $('#stat-top-category').textContent = topCategory ? `${topCategory[0]}` : '—';
+
+  // Cap / target
+  const cap = settings.monthlyCap;
+  const remaining = cap - total;
+  $('#stat-cap-value').textContent = formatMoney(cap, settings.baseCurrency);
+  const ruler = $('#cap-ruler-fill');
+  const pct = cap > 0 ? Math.min(100, (total / cap) * 100) : 0;
+  ruler.style.width = `${pct}%`;
+  ruler.classList.toggle('over', total > cap);
+
+  const capStatus = $('#cap-status');
+  if (total > cap) {
+    announce(capStatus, `Over budget by ${formatMoney(total - cap, settings.baseCurrency)}.`, true);
+  } else {
+    announce(capStatus, `${formatMoney(remaining, settings.baseCurrency)} remaining this period.`, false);
+  }
+
+  // 7-day trend
+  const days = lastNDays(7);
+  const byDay = {};
+  days.forEach((d) => { byDay[d] = 0; });
+  records.forEach((r) => { if (byDay[r.date] !== undefined) byDay[r.date] += r.amount; });
+  const max = Math.max(1, ...Object.values(byDay));
+  const trendEl = $('#trend-chart');
+  trendEl.innerHTML = days.map((d) => {
+    const val = byDay[d];
+    const heightPct = Math.max(2, (val / max) * 100);
+    const label = d.slice(5); // MM-DD
+    return `
+      <div class="trend-bar-wrap">
+        <div class="trend-bar" style="height:${heightPct}%" title="${formatMoney(val, settings.baseCurrency)} on ${d}"></div>
+        <span class="trend-day-label">${label}</span>
+      </div>`;
+  }).join('');
+
+  // Currency conversions
+  const convWrap = $('#currency-breakdown');
+  const others = Object.keys(settings.currencies);
+  convWrap.innerHTML = others.map((cur) => {
+    const val = convert(total, cur, settings);
+    return `<div class="stat-card"><div class="stat-label">Total in ${cur}</div><div class="stat-value mono">${formatMoney(val, cur)}</div></div>`;
+  }).join('');
+}
+
+// ---------------------------------------------------------------------
+// Settings panel
+// ---------------------------------------------------------------------
+function initSettings() {
+  const { settings } = getState();
+  const capInput = $('#setting-cap');
+  const baseSelect = $('#setting-base-currency');
+  const ratesWrap = $('#rates-wrap');
+  const statusEl = $('#settings-status');
+
+  capInput.value = settings.monthlyCap;
+  baseSelect.value = settings.baseCurrency;
+
+  function renderRates() {
+    const { settings } = getState();
+    ratesWrap.innerHTML = Object.entries(settings.currencies).map(([code, rate]) => `
+      <div class="rate-row">
+        <label for="rate-${code}">1 ${settings.baseCurrency} =&nbsp; (${code})</label>
+        <input type="text" inputmode="decimal" id="rate-${code}" data-currency="${code}"
+               value="${rate}" pattern="^(0|[1-9]\\d*)(\\.\\d+)?$" aria-describedby="rate-error-${code}">
+      </div>
+      <div class="field-error" id="rate-error-${code}"></div>
+    `).join('');
+  }
+  renderRates();
+
+  $('#settings-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const capVal = capInput.value.trim();
+    if (!/^(0|[1-9]\d*)(\.\d{1,2})?$/.test(capVal)) {
+      announce(statusEl, 'Spending cap must be a positive number.', true);
+      capInput.focus();
+      return;
+    }
+
+    const rateInputs = $all('input[data-currency]', ratesWrap);
+    const newRates = {};
+    for (const input of rateInputs) {
+      const val = input.value.trim();
+      const errEl = $(`#rate-error-${input.dataset.currency}`);
+      if (!/^(0|[1-9]\d*)(\.\d+)?$/.test(val) || Number(val) <= 0) {
+        errEl.textContent = 'Enter a positive exchange rate.';
+        input.setAttribute('aria-invalid', 'true');
+        announce(statusEl, 'Fix the highlighted exchange rate.', true);
+        input.focus();
+        return;
+      }
+      errEl.textContent = '';
+      input.removeAttribute('aria-invalid');
+      newRates[input.dataset.currency] = Number(val);
+    }
+
+    updateSettings({
+      monthlyCap: Number(capVal),
+      baseCurrency: baseSelect.value,
+      currencies: newRates
+    });
+    announce(statusEl, 'Settings saved.');
+  });
+}
+
+// ---------------------------------------------------------------------
+// Import / Export
+// ---------------------------------------------------------------------
+function isValidRecordShape(rec) {
+  return rec && typeof rec === 'object'
+    && typeof rec.id === 'string'
+    && typeof rec.description === 'string'
+    && typeof rec.amount === 'number'
+    && typeof rec.category === 'string'
+    && typeof rec.date === 'string'
+    && validateDate(rec.date).valid
+    && rec.amount > 0;
+}
+
+function initImportExport() {
+  const exportBtn = $('#export-json-btn');
+  const importInput = $('#import-json-input');
+  const statusEl = $('#io-status');
+
+  exportBtn.addEventListener('click', () => {
+    const { records } = getState();
+    const blob = new Blob([JSON.stringify(records, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ledger-export-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    announce(statusEl, `Exported ${records.length} records.`);
+  });
+
+  importInput.addEventListener('change', async () => {
+    const file = importInput.files[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      if (!Array.isArray(parsed)) throw new Error('Top-level JSON must be an array of records.');
+      const invalidIdx = parsed.findIndex((r) => !isValidRecordShape(r));
+      if (invalidIdx !== -1) {
+        throw new Error(`Record at index ${invalidIdx} is missing required fields or has an invalid value.`);
+      }
+      const ok = confirm(`Import ${parsed.length} records? This will replace your current ${getState().records.length} records.`);
+      if (!ok) { importInput.value = ''; return; }
+      replaceAllRecords(parsed);
+      populateCategoryOptions();
+      announce(statusEl, `Imported ${parsed.length} records successfully.`);
+    } catch (err) {
+      announce(statusEl, `Import failed: ${err.message}`, true);
+    } finally {
+      importInput.value = '';
+    }
+  });
+}
+
+// ---------------------------------------------------------------------
+// Boot
+// ---------------------------------------------------------------------
+function initApp() {
+  initTabs();
+  populateCategoryOptions();
+  initForm();
+  initTableEvents();
+  initSettings();
+  initImportExport();
+
+  subscribe(() => {
+    renderTable();
+    renderStats();
+    populateCategoryOptions();
+  });
+
+  renderTable();
+  renderStats();
+}
+
+// ====== boot ======
+document.addEventListener('DOMContentLoaded', initApp);
+
+</script>
+</body>
+</html>

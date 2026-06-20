@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Student Ledger — Tests</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  body { font-family: system-ui, sans-serif; background:#FAF7F0; color:#1B1B1B; max-width: 760px; margin: 2rem auto; padding: 0 1rem; }
+  h1 { font-size: 1.4rem; }
+  .pass { color: #2F5443; }
+  .fail { color: #9C3B23; font-weight: 700; }
+  ul { line-height: 1.8; }
+  #summary { font-weight: 700; margin-top: 1.5rem; padding: 0.75rem 1rem; border-radius: 6px; }
+  #summary.ok { background:#E7F0EA; color:#2F5443; }
+  #summary.bad { background:#FBEAE5; color:#9C3B23; }
+  code { background:#EDE6D6; padding: 0.1em 0.4em; border-radius:3px; }
+</style>
+</head>
+<body>
+<h1>Student Ledger — assertion tests</h1>
+<p>Open this page directly in a browser. Results print below and to the console.</p>
+<ul id="results"></ul>
+<div id="summary"></div>
+
+<script type="module">
+// ====== validators.js (inlined) ======
+// validators.js — regex-based validation rules
+// Each validator returns { valid: boolean, message: string }
+
+// Rule 1: description — no leading/trailing space, no doubled internal spaces
+const DESCRIPTION_RE = /^\S(?:.*\S)?$/;
+
+// Rule 2: numeric amount — up to 2 decimal places, no leading zeros (except "0")
+const AMOUNT_RE = /^(0|[1-9]\d*)(\.\d{1,2})?$/;
+
+// Rule 3: date — strict YYYY-MM-DD with valid month/day ranges
+const DATE_RE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+
+// Rule 4: category — letters with single internal spaces or hyphens only
+const CATEGORY_RE = /^[A-Za-z]+(?:[ -][A-Za-z]+)*$/;
+
+// Advanced rule (back-reference): catch accidentally duplicated words
+// e.g. "Lunch lunch at cafeteria" or "the the bus fare"
+const DUPLICATE_WORD_RE = /\b(\w+)\s+\1\b/i;
+
+function validateDescription(value) {
+  if (!DESCRIPTION_RE.test(value)) {
+    return {
+      valid: false,
+      message: 'No leading/trailing spaces, and avoid double spaces.'
+    };
+  }
+  if (DUPLICATE_WORD_RE.test(value)) {
+    return {
+      valid: false,
+      message: `Looks like a repeated word ("${DUPLICATE_WORD_RE.exec(value)[1]}"). Check for a typo.`
+    };
+  }
+  return { valid: true, message: '' };
+}
+
+function validateAmount(value) {
+  if (!AMOUNT_RE.test(value)) {
+    return {
+      valid: false,
+      message: 'Enter a positive number with at most 2 decimal places (e.g. 12.5 or 1200).'
+    };
+  }
+  if (Number(value) <= 0) {
+    return { valid: false, message: 'Amount must be greater than zero.' };
+  }
+  return { valid: true, message: '' };
+}
+
+function validateDate(value) {
+  if (!DATE_RE.test(value)) {
+    return { valid: false, message: 'Use the format YYYY-MM-DD (e.g. 2026-06-20).' };
+  }
+  // Confirm it's a real calendar date (e.g. reject Feb 30)
+  const [y, m, d] = value.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) {
+    return { valid: false, message: 'That date does not exist on the calendar.' };
+  }
+  return { valid: true, message: '' };
+}
+
+function validateCategory(value) {
+  if (!CATEGORY_RE.test(value)) {
+    return {
+      valid: false,
+      message: 'Letters only, with single spaces or hyphens between words (e.g. "Self-Care").'
+    };
+  }
+  return { valid: true, message: '' };
+}
+
+/** Compile a user-supplied search pattern safely. Never throws. */
+function compileSafeRegex(pattern, caseInsensitive) {
+  if (!pattern) return { regex: null, error: '' };
+  try {
+    const flags = caseInsensitive ? 'gi' : 'g';
+    const regex = new RegExp(pattern, flags);
+    return { regex, error: '' };
+  } catch (err) {
+    return { regex: null, error: `Invalid pattern: ${err.message}` };
+  }
+}
+
+// ====== search.js (inlined) ======
+// search.js — live regex search + safe highlighting
+/**
+ * Filter records whose description or category matches the pattern.
+ * Returns { matches: Record[], error: string }
+ */
+function filterRecords(records, pattern, caseInsensitive) {
+  if (!pattern) return { matches: records, error: '' };
+
+  const { regex, error } = compileSafeRegex(pattern, caseInsensitive);
+  if (error) return { matches: records, error };
+
+  const matches = records.filter((r) => {
+    regex.lastIndex = 0;
+    const hitDesc = regex.test(r.description);
+    regex.lastIndex = 0;
+    const hitCat = regex.test(r.category);
+    return hitDesc || hitCat;
+  });
+
+  return { matches, error: '' };
+}
+
+/**
+ * Escape HTML special characters so user/record text can't inject markup.
+ */
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * Wrap regex matches in <mark> tags for a given text string, safely.
+ * If pattern is empty or invalid, returns escaped text unchanged.
+ */
+function highlightMatches(text, pattern, caseInsensitive) {
+  const safeText = escapeHtml(text);
+  if (!pattern) return safeText;
+
+  const { regex, error } = compileSafeRegex(pattern, caseInsensitive);
+  if (error || !regex) return safeText;
+
+  // Re-run against the *escaped* text so indices line up, but build output
+  // by matching the original text first to avoid breaking HTML entities.
+  let result = '';
+  let lastIndex = 0;
+  let match;
+  const re = new RegExp(regex.source, regex.flags.includes('g') ? regex.flags : regex.flags + 'g');
+  re.lastIndex = 0;
+
+  // Guard against zero-length match infinite loops
+  let guard = 0;
+  while ((match = re.exec(text)) !== null && guard < 1000) {
+    guard++;
+    const start = match.index;
+    const end = start + match[0].length;
+    result += escapeHtml(text.slice(lastIndex, start));
+    result += `<mark>${escapeHtml(text.slice(start, end))}</mark>`;
+    lastIndex = end;
+    if (match[0].length === 0) re.lastIndex++;
+  }
+  result += escapeHtml(text.slice(lastIndex));
+  return result;
+}
+
+
+const results = [];
+function assert(name, condition) {
+  results.push({ name, pass: Boolean(condition) });
+}
+
+// --- Description rule ---
+assert('description: rejects leading space', !validateDescription(' Lunch').valid);
+assert('description: rejects trailing space', !validateDescription('Lunch ').valid);
+assert('description: accepts clean text', validateDescription('Lunch at cafeteria').valid);
+assert('description: flags duplicate word', !validateDescription('the the bus fare').valid);
+assert('description: duplicate-word regex matches case-insensitively', DUPLICATE_WORD_RE.test('Lunch lunch today'));
+
+// --- Amount rule ---
+assert('amount: accepts integer', validateAmount('12').valid);
+assert('amount: accepts 2 decimals', validateAmount('12.50').valid);
+assert('amount: rejects 3 decimals', !validateAmount('12.505').valid);
+assert('amount: rejects leading zero (01)', !validateAmount('01').valid);
+assert('amount: accepts zero-point value like 0.99', validateAmount('0.99').valid);
+assert('amount: rejects negative', !validateAmount('-5').valid);
+assert('amount: rejects non-numeric', !validateAmount('abc').valid);
+
+// --- Date rule ---
+assert('date: accepts valid YYYY-MM-DD', validateDate('2026-06-20').valid);
+assert('date: rejects bad month 13', !validateDate('2026-13-01').valid);
+assert('date: rejects Feb 30 (calendar check)', !validateDate('2026-02-30').valid);
+assert('date: accepts leap day 2024-02-29', validateDate('2024-02-29').valid);
+assert('date: rejects wrong format', !validateDate('06/20/2026').valid);
+
+// --- Category rule ---
+assert('category: accepts single word', validateCategory('Food').valid);
+assert('category: accepts hyphenated', validateCategory('Self-Care').valid);
+assert('category: accepts spaced words', validateCategory('Study Materials').valid);
+assert('category: rejects digits', !validateCategory('Food2').valid);
+assert('category: rejects leading hyphen', !validateCategory('-Food').valid);
+
+// --- Safe regex compiler ---
+assert('compileSafeRegex: valid pattern compiles', compileSafeRegex('coffee|tea', true).regex !== null);
+assert('compileSafeRegex: invalid pattern caught, not thrown', compileSafeRegex('(unclosed', true).error.length > 0);
+assert('compileSafeRegex: empty pattern returns no regex, no error', compileSafeRegex('', true).regex === null && compileSafeRegex('', true).error === '');
+
+// --- Search / filter ---
+const sampleRecords = [
+  { id: 'rec_0001', description: 'Coffee with study group', category: 'Food', amount: 3.2, date: '2026-06-04' },
+  { id: 'rec_0002', description: 'Bus pass top-up', category: 'Transport', amount: 8.75, date: '2026-06-03' },
+  { id: 'rec_0003', description: 'Tea and a sandwich', category: 'Food', amount: 0.99, date: '2026-03-01' }
+];
+const coffeeTea = filterRecords(sampleRecords, '(coffee|tea)', true);
+assert('filterRecords: matches case-insensitive alternation', coffeeTea.matches.length === 2);
+
+const centsPresent = filterRecords(sampleRecords, '\\.\\d{2}\\b', true);
+assert('filterRecords: amount-style decimal pattern does not crash on description-only search', centsPresent.error === '');
+
+const badPattern = filterRecords(sampleRecords, '[', true);
+assert('filterRecords: invalid regex falls back gracefully with error message', badPattern.error.length > 0 && badPattern.matches.length === sampleRecords.length);
+
+// --- Highlighting ---
+const highlighted = highlightMatches('Coffee with study group', 'coffee', true);
+assert('highlightMatches: wraps match in <mark>', highlighted.toLowerCase().includes('<mark>coffee</mark>'));
+
+const escaped = highlightMatches('<script>alert(1)</script>', 'alert', true);
+assert('highlightMatches: escapes HTML to prevent injection', !escaped.includes('<script>') && escaped.includes('&lt;script&gt;'));
+
+// --- Render ---
+const list = document.getElementById('results');
+let passCount = 0;
+results.forEach(({ name, pass }) => {
+  const li = document.createElement('li');
+  li.className = pass ? 'pass' : 'fail';
+  li.textContent = `${pass ? '✓ PASS' : '✗ FAIL'} — ${name}`;
+  list.appendChild(li);
+  if (pass) passCount++;
+  console[pass ? 'log' : 'error'](`${pass ? 'PASS' : 'FAIL'}: ${name}`);
+});
+
+const summary = document.getElementById('summary');
+summary.textContent = `${passCount} / ${results.length} tests passed`;
+summary.className = passCount === results.length ? 'ok' : 'bad';
+</script>
+</body>
+</html>
